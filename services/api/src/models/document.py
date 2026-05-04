@@ -29,7 +29,7 @@ class Document(Base, TenantMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
     sensitivity: Mapped[str] = mapped_column(String(50), default="internal", nullable=False)
     chunk_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    metadata: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    doc_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict, nullable=False)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -51,7 +51,7 @@ class DocumentChunk(Base, TenantMixin):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     token_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     qdrant_point_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    metadata: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    chunk_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default="now()", nullable=False
     )

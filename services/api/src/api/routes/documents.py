@@ -24,7 +24,7 @@ class DocumentResponse(BaseModel):
     status: str
     sensitivity: str
     chunk_count: int
-    metadata: dict
+    doc_metadata: dict
     created_at: Any
     updated_at: Any
 
