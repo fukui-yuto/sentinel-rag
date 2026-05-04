@@ -1,0 +1,97 @@
+# Development overrides
+# Usage: docker compose up (automatically merges this file)
+
+services:
+  nginx:
+    ports:
+      - "8080:80"
+    volumes:
+      - ./config/nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/conf.d:/etc/nginx/conf.d:ro
+
+  api:
+    build:
+      target: development
+    environment:
+      - UVICORN_WORKERS=1
+      - ENVIRONMENT=development
+    volumes:
+      - ./services/api/src:/app/src:ro
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+
+  worker:
+    build:
+      target: development
+    command: ["celery", "-A", "src.worker.celery_app", "worker", "--loglevel=debug", "--concurrency=2"]
+    volumes:
+      - ./services/api/src:/app/src:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+
+  beat:
+    build:
+      target: development
+    command: ["celery", "-A", "src.worker.celery_app", "beat", "--loglevel=debug"]
+    volumes:
+      - ./services/api/src:/app/src:ro
+
+  postgres:
+    ports:
+      - "5432:5432"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 2G
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "log_statement=all"
+
+  redis:
+    ports:
+      - "6379:6379"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1G
+
+  qdrant:
+    ports:
+      - "6333:6333"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 4G
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1G
+
+  ollama:
+    ports:
+      - "11434:11434"
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
