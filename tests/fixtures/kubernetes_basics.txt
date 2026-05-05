@@ -1,0 +1,238 @@
+Kubernetes Basics: A Comprehensive Guide
+
+1. Introduction to Kubernetes
+
+Kubernetes, often abbreviated as K8s, is an open-source container orchestration platform originally developed by Google and now maintained by the Cloud Native Computing Foundation (CNCF). It automates the deployment, scaling, and management of containerized applications. Kubernetes provides a framework for running distributed systems resiliently, handling failover, scaling, and deployment patterns for your applications.
+
+At its core, Kubernetes solves the problem of managing containers at scale. While Docker allows you to package applications into containers, Kubernetes handles the orchestration of those containers across multiple hosts, ensuring they run reliably and efficiently.
+
+2. Kubernetes Architecture
+
+A Kubernetes cluster consists of two main components: the Control Plane and the Worker Nodes.
+
+Control Plane Components:
+
+The API Server (kube-apiserver) is the front end of the Kubernetes control plane. It exposes the Kubernetes API and is the central management entity that receives all REST requests for modifications to pods, services, replication controllers, and other components. All communication between components goes through the API server.
+
+The Scheduler (kube-scheduler) watches for newly created pods that have no node assigned and selects a node for them to run on. Scheduling decisions take into account individual and collective resource requirements, hardware/software/policy constraints, affinity and anti-affinity specifications, data locality, inter-workload interference, and deadlines.
+
+The Controller Manager (kube-controller-manager) runs controller processes. Each controller is a separate process, but to reduce complexity, they are all compiled into a single binary and run in a single process. Controllers include the Node Controller (responsible for noticing and responding when nodes go down), the Replication Controller (responsible for maintaining the correct number of pods), the Endpoints Controller, and the Service Account & Token Controllers.
+
+etcd is a consistent and highly-available key-value store used as Kubernetes' backing store for all cluster data. It stores the entire state of the cluster, including configuration data, the state of each node, and the state of each pod and service.
+
+Worker Node Components:
+
+The Kubelet is an agent that runs on each node in the cluster. It makes sure that containers are running in a pod. The kubelet takes a set of PodSpecs and ensures that the containers described in those PodSpecs are running and healthy.
+
+The Kube-proxy is a network proxy that runs on each node in the cluster, implementing part of the Kubernetes Service concept. It maintains network rules on nodes that allow network communication to your pods from network sessions inside or outside of your cluster.
+
+The Container Runtime is the software responsible for running containers. Kubernetes supports several container runtimes including containerd, CRI-O, and any implementation of the Kubernetes Container Runtime Interface (CRI).
+
+3. Pods
+
+A Pod is the smallest deployable unit in Kubernetes. It represents a single instance of a running process in your cluster. Pods contain one or more containers, with shared storage and network resources, and a specification for how to run the containers.
+
+Pods are designed as relatively ephemeral, disposable entities. When a pod is created, it is scheduled to run on a node in the cluster. The pod remains on that node until the process terminates, the pod object is deleted, the pod is evicted for lack of resources, or the node fails.
+
+A simple pod definition in YAML looks like this:
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  labels:
+    app: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+
+Multi-container pods share the same network namespace, meaning they share an IP address and port space. They can communicate with each other using localhost. Common multi-container patterns include sidecar containers (which extend the main container's functionality), ambassador containers (which proxy network connections), and init containers (which run setup tasks before the main container starts).
+
+Pod Lifecycle: A pod goes through several phases during its lifetime. The Pending phase means the pod has been accepted by the Kubernetes system but one or more containers have not been created. The Running phase means the pod has been bound to a node and all containers have been created, with at least one container still running. The Succeeded phase means all containers in the pod have terminated successfully. The Failed phase means all containers have terminated and at least one terminated in failure. The Unknown phase means the state of the pod cannot be determined.
+
+4. Deployments
+
+A Deployment provides declarative updates for pods and ReplicaSets. You describe a desired state in a Deployment, and the Deployment Controller changes the actual state to the desired state at a controlled rate. Deployments are the recommended way to manage the creation and scaling of pods.
+
+Key features of Deployments include:
+
+Rolling updates: Deployments support rolling updates, which allow you to update your application with zero downtime. During a rolling update, Kubernetes incrementally replaces old pods with new ones, ensuring that a minimum number of pods are available at all times.
+
+Rollback: If something goes wrong with a deployment, you can easily roll back to a previous version. Kubernetes keeps a history of deployments, allowing you to revert to any previous revision.
+
+Scaling: Deployments make it easy to scale your application up or down by changing the number of replicas.
+
+A Deployment example:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  labels:
+    app: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: web
+        image: myapp:v2.0
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+
+The strategy field defines how old pods are replaced by new ones. RollingUpdate is the default strategy. The maxSurge parameter specifies the maximum number of pods that can be created over the desired number, and maxUnavailable specifies the maximum number of pods that can be unavailable during the update.
+
+5. Services
+
+A Service in Kubernetes is an abstract way to expose an application running on a set of pods as a network service. Services enable loose coupling between dependent pods. A Service targets a set of pods using label selectors.
+
+Types of Services:
+
+ClusterIP (default): Exposes the service on a cluster-internal IP. The service is only reachable from within the cluster. This is the most common service type for internal communication between microservices.
+
+NodePort: Exposes the service on each node's IP at a static port (the NodePort). A ClusterIP service, to which the NodePort service routes, is automatically created. You can contact the NodePort service from outside the cluster by requesting NodeIP:NodePort.
+
+LoadBalancer: Exposes the service externally using a cloud provider's load balancer. NodePort and ClusterIP services, to which the external load balancer routes, are automatically created. This is the standard way to expose a service to the internet in cloud environments.
+
+ExternalName: Maps the service to the contents of the externalName field (e.g., api.example.com) by returning a CNAME record. No proxying of any kind is set up.
+
+A Service definition example:
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: web
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+
+6. Namespaces
+
+Namespaces provide a mechanism for isolating groups of resources within a single cluster. They are intended for use in environments with many users spread across multiple teams or projects. Namespaces provide a scope for names: resource names need to be unique within a namespace, but not across namespaces.
+
+Kubernetes starts with four initial namespaces: default (the default namespace for objects with no other namespace), kube-system (the namespace for objects created by the Kubernetes system), kube-public (readable by all users, mostly reserved for cluster usage), and kube-node-lease (holds Lease objects associated with each node).
+
+You can create namespaces to separate environments such as development, staging, and production within the same cluster, or to separate different teams or projects. Resource quotas can be applied per namespace to limit the total amount of resources that can be consumed.
+
+7. ConfigMaps and Secrets
+
+ConfigMaps allow you to decouple configuration artifacts from container images, making applications more portable. A ConfigMap stores configuration data as key-value pairs. Pods can consume ConfigMaps as environment variables, command-line arguments, or as configuration files mounted in a volume.
+
+Secrets are similar to ConfigMaps but are specifically designed to hold sensitive data such as passwords, OAuth tokens, and SSH keys. Secrets are base64-encoded by default, though this is not encryption. For production use, you should enable encryption at rest for Secrets and consider using external secret management solutions like HashiCorp Vault or AWS Secrets Manager.
+
+8. Persistent Volumes and Persistent Volume Claims
+
+Kubernetes provides an abstraction for storage through Persistent Volumes (PV) and Persistent Volume Claims (PVC). A PersistentVolume is a piece of storage in the cluster that has been provisioned by an administrator or dynamically provisioned using StorageClasses. A PersistentVolumeClaim is a request for storage by a user.
+
+StorageClasses provide a way for administrators to describe the classes of storage they offer. Different classes might map to quality-of-service levels, backup policies, or arbitrary policies determined by the cluster administrators. Dynamic provisioning allows storage volumes to be created on-demand, eliminating the need for cluster administrators to pre-provision storage.
+
+Access modes for PVs include ReadWriteOnce (the volume can be mounted as read-write by a single node), ReadOnlyMany (the volume can be mounted read-only by many nodes), and ReadWriteMany (the volume can be mounted as read-write by many nodes).
+
+9. Ingress
+
+An Ingress is an API object that manages external access to services in a cluster, typically HTTP and HTTPS. Ingress can provide load balancing, SSL termination, and name-based virtual hosting. An Ingress controller is responsible for fulfilling the Ingress rules. Popular Ingress controllers include NGINX Ingress Controller, Traefik, and HAProxy.
+
+An Ingress resource example:
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  tls:
+  - hosts:
+    - myapp.example.com
+    secretName: tls-secret
+  rules:
+  - host: myapp.example.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+
+10. Resource Management
+
+Kubernetes allows you to specify resource requests and limits for containers. Resource requests are what the container is guaranteed to get. The scheduler uses this information to decide which node to place the pod on. Resource limits are the maximum amount of a resource that a container can use. If a container exceeds its memory limit, it will be terminated (OOMKilled). If it exceeds its CPU limit, it will be throttled.
+
+Best practices for resource management include always setting resource requests and limits, using Horizontal Pod Autoscaler (HPA) for automatic scaling based on CPU utilization or custom metrics, using Vertical Pod Autoscaler (VPA) for automatically adjusting resource requests, and using Pod Disruption Budgets (PDB) to ensure a minimum number of pods are always available during voluntary disruptions.
+
+11. Health Checks
+
+Kubernetes supports three types of probes for health checking:
+
+Liveness probes determine if a container is running. If the liveness probe fails, the kubelet kills the container, and the container is subjected to its restart policy. Use liveness probes to catch deadlocks or situations where the application is running but cannot make progress.
+
+Readiness probes determine if a container is ready to accept traffic. If the readiness probe fails, the endpoints controller removes the pod's IP address from the endpoints of all services that match the pod. Use readiness probes when your application needs time to initialize or has external dependencies.
+
+Startup probes indicate whether the application within the container has started. All other probes are disabled if a startup probe is provided, until it succeeds. Use startup probes for applications that take a long time to start up.
+
+12. Common kubectl Commands
+
+kubectl get pods - List all pods in the current namespace
+kubectl get pods -n kube-system - List pods in a specific namespace
+kubectl get pods -o wide - List pods with additional information
+kubectl describe pod <pod-name> - Show detailed information about a pod
+kubectl logs <pod-name> - View logs of a pod
+kubectl logs <pod-name> -c <container-name> - View logs of a specific container in a pod
+kubectl exec -it <pod-name> -- /bin/bash - Execute a command in a pod
+kubectl apply -f <filename.yaml> - Apply a configuration file
+kubectl delete -f <filename.yaml> - Delete resources defined in a file
+kubectl scale deployment <name> --replicas=5 - Scale a deployment
+kubectl rollout status deployment <name> - Check the status of a rollout
+kubectl rollout undo deployment <name> - Roll back a deployment
+kubectl top pods - Show resource usage of pods
+kubectl get events --sort-by=.metadata.creationTimestamp - View cluster events sorted by time
+
+This guide covers the fundamental concepts of Kubernetes. As you progress, you will encounter more advanced topics such as StatefulSets for stateful applications, DaemonSets for running a pod on every node, Jobs and CronJobs for batch processing, Custom Resource Definitions (CRDs) for extending the Kubernetes API, Operators for automating application management, and service meshes like Istio for advanced traffic management and observability.

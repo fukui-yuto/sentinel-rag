@@ -60,6 +60,7 @@ export function DocumentsPage() {
     onSuccess: (_data, deletedId) => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       if (selectedDoc?.id === deletedId) setSelectedDoc(null);
+      setDeleteTarget(null);
       setDeleteError(null);
     },
     onError: (err) => {
@@ -300,13 +301,11 @@ export function DocumentsPage() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  deleteMutation.mutate(deleteTarget.id);
-                  setDeleteTarget(null);
-                }}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
+                onClick={() => deleteMutation.mutate(deleteTarget.id)}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50"
               >
-                Delete
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>

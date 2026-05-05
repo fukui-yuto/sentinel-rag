@@ -1,0 +1,427 @@
+Python Best Practices: A Comprehensive Guide
+
+1. Code Style and PEP 8
+
+PEP 8 is the official style guide for Python code. Following PEP 8 ensures your code is readable and consistent with the broader Python ecosystem. Here are the key guidelines:
+
+Indentation: Use 4 spaces per indentation level. Never mix tabs and spaces. Continuation lines should align wrapped elements either vertically using Python's implicit line joining inside parentheses, brackets, and braces, or using a hanging indent.
+
+Line Length: Limit all lines to a maximum of 79 characters for code and 72 characters for docstrings and comments. For teams that agree on a longer line length, it is acceptable to increase the limit to 99 characters, but docstrings and comments should still be wrapped at 72.
+
+Imports: Imports should be on separate lines and grouped in the following order: standard library imports, related third-party imports, and local application/library specific imports. Each group should be separated by a blank line. Avoid wildcard imports (from module import *) as they make it unclear which names are present in the namespace.
+
+# Good
+import os
+import sys
+from collections import defaultdict
+
+import requests
+import numpy as np
+
+from myproject.utils import helper
+from myproject.models import User
+
+# Bad
+import os, sys
+from module import *
+
+Naming Conventions: Use snake_case for functions, methods, and variables. Use PascalCase for class names. Use UPPER_CASE for constants. Use a leading underscore for private attributes (_private_attr). Use double leading underscores for name mangling (__mangled). Avoid single-character names except for counters, iterators, or mathematically conventional uses.
+
+Whitespace: Avoid extraneous whitespace in the following situations: immediately inside parentheses, brackets, or braces; between a trailing comma and a closing parenthesis; immediately before a comma, semicolon, or colon; immediately before the open parenthesis that starts the argument list of a function call.
+
+Use tools like flake8, pylint, or ruff to automatically check your code against PEP 8. Formatters like black and autopep8 can automatically format your code to comply with PEP 8.
+
+2. Type Hints and Type Checking
+
+Python supports type hints (also called type annotations) since Python 3.5, formalized in PEP 484. Type hints improve code readability, enable better IDE support, and allow static type checking with tools like mypy, pyright, or pytype.
+
+Basic type hints:
+
+def greet(name: str) -> str:
+    return f"Hello, {name}"
+
+def calculate_average(numbers: list[float]) -> float:
+    return sum(numbers) / len(numbers)
+
+def find_user(user_id: int) -> dict[str, str] | None:
+    users = {"1": {"name": "Alice"}}
+    return users.get(str(user_id))
+
+Advanced type hints using the typing module:
+
+from typing import TypeVar, Generic, Protocol, Callable, Iterator
+from collections.abc import Sequence
+
+T = TypeVar("T")
+
+class Stack(Generic[T]):
+    def __init__(self) -> None:
+        self._items: list[T] = []
+
+    def push(self, item: T) -> None:
+        self._items.append(item)
+
+    def pop(self) -> T:
+        return self._items.pop()
+
+class Sortable(Protocol):
+    def __lt__(self, other: "Sortable") -> bool: ...
+
+def sort_items(items: Sequence[Sortable]) -> list[Sortable]:
+    return sorted(items)
+
+Best practices for type hints: Use type hints for function signatures, especially in public APIs. Use type hints for class attributes. Run mypy or pyright in your CI pipeline with strict mode enabled. Use TypedDict for dictionaries with known structures. Use dataclasses or Pydantic models instead of raw dictionaries when possible.
+
+3. Virtual Environments and Dependency Management
+
+Always use virtual environments to isolate project dependencies. This prevents conflicts between different projects and ensures reproducibility.
+
+Creating and using virtual environments:
+
+# Using venv (built-in)
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+.venv\Scripts\activate     # Windows
+
+# Using uv (fast, modern alternative)
+uv venv
+uv pip install -r requirements.txt
+
+Dependency management tools:
+
+pip with requirements.txt: The traditional approach. Use pip freeze > requirements.txt to generate a requirements file. Pin all dependencies to specific versions for reproducibility: requests==2.31.0 instead of requests>=2.31.
+
+pip-tools: Provides pip-compile to generate a locked requirements file from a high-level requirements.in file. This separates direct dependencies from transitive dependencies.
+
+Poetry: A modern dependency management and packaging tool. Uses pyproject.toml for configuration and poetry.lock for reproducible installs. Supports dependency groups (dev, test, docs).
+
+uv: A fast Python package installer and resolver written in Rust. Drop-in replacement for pip with significantly faster installation times. Supports lock files and workspaces.
+
+Best practices: Always pin your dependencies in production. Use a lock file to ensure reproducible builds. Separate development dependencies from production dependencies. Regularly update dependencies and check for security vulnerabilities using tools like pip-audit or safety.
+
+4. Testing
+
+Writing tests is essential for maintaining code quality and preventing regressions. Python has several excellent testing frameworks and tools.
+
+pytest is the recommended testing framework for Python:
+
+import pytest
+from myapp.calculator import Calculator
+
+class TestCalculator:
+    def setup_method(self):
+        self.calc = Calculator()
+
+    def test_add(self):
+        assert self.calc.add(2, 3) == 5
+
+    def test_divide(self):
+        assert self.calc.divide(10, 2) == 5.0
+
+    def test_divide_by_zero(self):
+        with pytest.raises(ZeroDivisionError):
+            self.calc.divide(10, 0)
+
+    @pytest.mark.parametrize("a, b, expected", [
+        (1, 1, 2),
+        (0, 0, 0),
+        (-1, 1, 0),
+        (100, 200, 300),
+    ])
+    def test_add_parametrized(self, a, b, expected):
+        assert self.calc.add(a, b) == expected
+
+Fixtures allow you to set up test data and shared resources:
+
+@pytest.fixture
+def database_connection():
+    conn = create_connection("test_db")
+    yield conn
+    conn.close()
+
+@pytest.fixture
+def sample_users(database_connection):
+    users = [
+        User(name="Alice", email="alice@example.com"),
+        User(name="Bob", email="bob@example.com"),
+    ]
+    for user in users:
+        database_connection.insert(user)
+    return users
+
+def test_find_user(database_connection, sample_users):
+    user = database_connection.find_by_email("alice@example.com")
+    assert user.name == "Alice"
+
+Mocking with unittest.mock:
+
+from unittest.mock import Mock, patch, MagicMock
+
+@patch("myapp.services.requests.get")
+def test_fetch_data(mock_get):
+    mock_get.return_value.json.return_value = {"status": "ok"}
+    mock_get.return_value.status_code = 200
+
+    result = fetch_data("https://api.example.com/data")
+    assert result == {"status": "ok"}
+    mock_get.assert_called_once()
+
+Testing best practices: Aim for high test coverage but focus on critical paths. Write unit tests, integration tests, and end-to-end tests. Use pytest-cov for coverage reporting. Run tests in CI/CD pipelines. Follow the Arrange-Act-Assert pattern. Keep tests independent and deterministic.
+
+5. Error Handling
+
+Proper error handling makes your code robust and easier to debug.
+
+Use specific exception types:
+
+# Good
+try:
+    value = int(user_input)
+except ValueError:
+    print("Please enter a valid integer")
+
+# Bad - catches everything including KeyboardInterrupt and SystemExit
+try:
+    value = int(user_input)
+except:
+    print("Something went wrong")
+
+Create custom exceptions for your domain:
+
+class AppError(Exception):
+    """Base exception for the application."""
+    pass
+
+class ValidationError(AppError):
+    """Raised when input validation fails."""
+    def __init__(self, field: str, message: str):
+        self.field = field
+        self.message = message
+        super().__init__(f"Validation error on {field}: {message}")
+
+class NotFoundError(AppError):
+    """Raised when a requested resource is not found."""
+    pass
+
+Use context managers for resource management:
+
+from contextlib import contextmanager
+
+@contextmanager
+def managed_resource(name: str):
+    resource = acquire_resource(name)
+    try:
+        yield resource
+    finally:
+        release_resource(resource)
+
+Best practices: Never use bare except clauses. Use finally or context managers to ensure cleanup. Log exceptions with full tracebacks. Don't swallow exceptions silently. Raise exceptions as early as possible (fail fast). Document which exceptions a function can raise.
+
+6. Project Structure
+
+A well-organized project structure makes code easier to navigate and maintain:
+
+myproject/
+    pyproject.toml
+    README.md
+    src/
+        myproject/
+            __init__.py
+            main.py
+            config.py
+            models/
+                __init__.py
+                user.py
+                product.py
+            services/
+                __init__.py
+                auth.py
+                payment.py
+            utils/
+                __init__.py
+                helpers.py
+                validators.py
+            api/
+                __init__.py
+                routes.py
+                middleware.py
+    tests/
+        __init__.py
+        conftest.py
+        unit/
+            test_models.py
+            test_services.py
+        integration/
+            test_api.py
+    docs/
+        conf.py
+
+Use pyproject.toml as the single source for project metadata and tool configuration. The src layout (placing your package inside a src/ directory) prevents accidentally importing your package from the source directory instead of the installed version.
+
+7. Logging
+
+Use Python's built-in logging module instead of print statements:
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+def process_order(order_id: str) -> None:
+    logger.info("Processing order %s", order_id)
+    try:
+        result = charge_payment(order_id)
+        logger.debug("Payment result: %s", result)
+    except PaymentError as e:
+        logger.error("Payment failed for order %s: %s", order_id, e, exc_info=True)
+        raise
+
+Configure logging at the application entry point:
+
+import logging.config
+
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+        },
+        "json": {
+            "class": "pythonjsonlogger.jsonlogger.JsonFormatter",
+            "format": "%(asctime)s %(levelname)s %(name)s %(message)s"
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+            "level": "DEBUG",
+        },
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": "app.log",
+            "maxBytes": 10485760,
+            "backupCount": 5,
+            "formatter": "json",
+            "level": "INFO",
+        },
+    },
+    "root": {
+        "level": "INFO",
+        "handlers": ["console", "file"],
+    },
+}
+
+logging.config.dictConfig(LOGGING_CONFIG)
+
+Best practices: Use the module-level logger pattern (__name__). Use appropriate log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL). Use lazy formatting with %s placeholders, not f-strings, in log calls. Include context information in log messages. Use structured logging (JSON) in production for easier parsing.
+
+8. Code Documentation
+
+Write clear docstrings for modules, classes, and functions:
+
+def calculate_compound_interest(
+    principal: float,
+    rate: float,
+    time_years: int,
+    n_compounds: int = 12,
+) -> float:
+    """Calculate compound interest on a principal amount.
+
+    Uses the formula A = P(1 + r/n)^(nt) to compute the final
+    amount after compound interest is applied.
+
+    Args:
+        principal: The initial amount of money.
+        rate: The annual interest rate as a decimal (e.g., 0.05 for 5%).
+        time_years: The number of years the money is invested.
+        n_compounds: The number of times interest is compounded per year.
+            Defaults to 12 (monthly).
+
+    Returns:
+        The total amount after compound interest.
+
+    Raises:
+        ValueError: If principal is negative or rate is negative.
+
+    Examples:
+        >>> calculate_compound_interest(1000, 0.05, 10)
+        1647.01
+        >>> calculate_compound_interest(5000, 0.08, 5, n_compounds=4)
+        7429.74
+    """
+    if principal < 0:
+        raise ValueError("Principal must be non-negative")
+    if rate < 0:
+        raise ValueError("Rate must be non-negative")
+
+    return principal * (1 + rate / n_compounds) ** (n_compounds * time_years)
+
+Use Google style, NumPy style, or Sphinx style docstrings consistently throughout your project.
+
+9. Performance Best Practices
+
+Use built-in functions and data structures: Python's built-in functions (map, filter, sum, any, all) and data structures (dict, set) are implemented in C and are significantly faster than pure Python equivalents.
+
+Use generators for large datasets:
+
+# Memory-efficient: processes one item at a time
+def read_large_file(file_path: str) -> Iterator[str]:
+    with open(file_path) as f:
+        for line in f:
+            yield line.strip()
+
+# Instead of loading everything into memory
+def read_large_file_bad(file_path: str) -> list[str]:
+    with open(file_path) as f:
+        return [line.strip() for line in f.readlines()]
+
+Use appropriate data structures: Use sets for membership testing (O(1) vs O(n) for lists). Use collections.deque for efficient append/pop from both ends. Use collections.Counter for counting. Use functools.lru_cache for memoization.
+
+Profile before optimizing: Use cProfile, line_profiler, or py-spy to identify actual bottlenecks before optimizing. Premature optimization is the root of all evil.
+
+10. Security Best Practices
+
+Never hardcode secrets: Use environment variables or secret management tools. Use python-dotenv for local development and proper secret management (e.g., AWS Secrets Manager, HashiCorp Vault) in production.
+
+Validate and sanitize all input: Use libraries like Pydantic for data validation. Never trust user input. Use parameterized queries for database access to prevent SQL injection.
+
+Keep dependencies updated: Regularly run pip-audit or safety to check for known vulnerabilities. Set up automated dependency update tools like Dependabot or Renovate.
+
+Use HTTPS for all network communication. Implement proper authentication and authorization. Follow the principle of least privilege.
+
+11. Async Programming
+
+Python's asyncio module provides infrastructure for writing single-threaded concurrent code:
+
+import asyncio
+import aiohttp
+
+async def fetch_url(session: aiohttp.ClientSession, url: str) -> str:
+    async with session.get(url) as response:
+        return await response.text()
+
+async def fetch_all(urls: list[str]) -> list[str]:
+    async with aiohttp.ClientSession() as session:
+        tasks = [fetch_url(session, url) for url in urls]
+        return await asyncio.gather(*tasks)
+
+async def main():
+    urls = [
+        "https://api.example.com/users",
+        "https://api.example.com/products",
+        "https://api.example.com/orders",
+    ]
+    results = await fetch_all(urls)
+    for url, result in zip(urls, results):
+        print(f"{url}: {len(result)} bytes")
+
+asyncio.run(main())
+
+Use async/await for I/O-bound operations (network requests, file I/O, database queries). For CPU-bound operations, use multiprocessing or concurrent.futures.ProcessPoolExecutor instead.
+
+12. Continuous Integration
+
+Set up CI/CD pipelines to automatically run linting, type checking, and tests on every commit. A typical CI configuration includes running ruff or flake8 for linting, mypy or pyright for type checking, pytest with coverage reporting, and security scanning with pip-audit. Enforce code review and require all CI checks to pass before merging.
+
+This guide covers the most important Python best practices. Following these guidelines will help you write clean, maintainable, and robust Python code that other developers will enjoy working with.

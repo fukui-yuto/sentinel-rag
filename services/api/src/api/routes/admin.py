@@ -1,6 +1,7 @@
 import uuid
 from typing import Any, Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -13,6 +14,8 @@ from src.models.document import Document
 from src.models.llm_provider import LLMProvider
 from src.models.qa_history import QAHistory
 from src.models.user import User
+
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -100,6 +103,13 @@ async def update_user(
     user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
+    valid_roles = {"system_admin", "tenant_admin", "content_manager", "user", "auditor", "read_only"}
+    if data.role is not None:
+        if data.role not in valid_roles:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid role")
+        if data.role == "system_admin" and user.role != "system_admin":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot assign system_admin role")
+
     result = await db.execute(
         select(User).where(User.id == user_id, User.tenant_id == user.tenant_id)
     )
@@ -275,3 +285,41 @@ async def usage_metrics(
         "period": "last_30_days",
         "queries": recent_queries,
     }
+
+
+@router.post("/reindex")
+async def reindex_documents(
+    user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Re-index all documents (e.g. after changing embedding provider)."""
+    if user.role != "system_admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="System admin required")
+
+    result = await db.execute(
+        select(Document).where(
+            Document.tenant_id == user.tenant_id,
+            Document.deleted_at.is_(None),
+            Document.status.in_(["indexed", "failed"]),
+        )
+    )
+    docs = result.scalars().all()
+
+    queued = 0
+    failed = 0
+    for doc in docs:
+        try:
+            from src.worker.celery_app import celery_app
+            celery_app.send_task(
+                "src.worker.tasks.ingestion.process_document",
+                args=[str(doc.id)],
+            )
+            doc.status = "pending"
+            doc.chunk_count = 0
+            queued += 1
+        except Exception as e:
+            logger.error("reindex_task_send_failed", doc_id=str(doc.id), error=str(e))
+            failed += 1
+
+    await db.commit()
+    return {"queued": queued, "failed": failed, "total": len(docs)}

@@ -1,6 +1,28 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User } from "lucide-react";
+import { Send, Bot, User, ChevronDown } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
+
+const MODEL_OPTIONS = [
+  { group: "Ollama (Local)", models: [
+    { id: "", label: "Default (Server Setting)" },
+    { id: "qwen2.5:3b", label: "Qwen 2.5 3B" },
+    { id: "qwen2.5:7b", label: "Qwen 2.5 7B" },
+    { id: "llama3.1:8b", label: "Llama 3.1 8B" },
+    { id: "gemma2:9b", label: "Gemma 2 9B" },
+  ]},
+  { group: "Google", models: [
+    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+    { id: "gemini-2.5-pro-preview-05-06", label: "Gemini 2.5 Pro" },
+  ]},
+  { group: "Anthropic", models: [
+    { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
+    { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+  ]},
+  { group: "OpenAI", models: [
+    { id: "gpt-4o", label: "GPT-4o" },
+    { id: "gpt-4o-mini", label: "GPT-4o Mini" },
+  ]},
+];
 
 interface Source {
   filename: string;
@@ -20,6 +42,7 @@ export function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const token = useAuthStore((s) => s.token);
 
@@ -55,7 +78,7 @@ export function ChatPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ query: userMsg.content }),
+        body: JSON.stringify({ query: userMsg.content, ...(selectedModel ? { model: selectedModel } : {}) }),
       });
 
       if (!res.ok) {
@@ -184,22 +207,44 @@ export function ChatPage() {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="flex gap-2 pt-4 border-t border-gray-200">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask a question..."
-          className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          disabled={loading}
-        />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          className="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
-        >
-          <Send size={18} />
-        </button>
-      </form>
+      <div className="pt-4 border-t border-gray-200 space-y-2">
+        <div className="flex items-center gap-2">
+          <ChevronDown size={14} className="text-gray-400" />
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+            disabled={loading}
+          >
+            {MODEL_OPTIONS.map((group) => (
+              <optgroup key={group.group} label={group.group}>
+                {group.models.map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {selectedModel && (
+            <span className="text-xs text-gray-400">Model: {selectedModel}</span>
+          )}
+        </div>
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask a question..."
+            className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            disabled={loading}
+          />
+          <button
+            type="submit"
+            disabled={loading || !input.trim()}
+            className="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            <Send size={18} />
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

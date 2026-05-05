@@ -20,13 +20,15 @@ logger = structlog.get_logger()
 router = APIRouter(prefix="/qa", tags=["qa"])
 
 
-ALLOWED_MODELS = {
-    "qwen2.5:3b", "qwen2.5:7b", "qwen2.5:14b", "llama3.1:8b",
-    "nomic-embed-text", "gemma2:9b",
-    "claude-sonnet-4-20250514", "claude-haiku-4-5-20251001",
-    "gpt-4o", "gpt-4o-mini",
-    "gemini-2.0-flash", "gemini-2.5-pro-preview-05-06",
+MODEL_TO_PROVIDER: dict[str, str] = {
+    "qwen2.5:3b": "ollama", "qwen2.5:7b": "ollama", "qwen2.5:14b": "ollama",
+    "llama3.1:8b": "ollama", "gemma2:9b": "ollama",
+    "claude-sonnet-4-20250514": "anthropic", "claude-haiku-4-5-20251001": "anthropic",
+    "gpt-4o": "openai", "gpt-4o-mini": "openai",
+    "gemini-2.0-flash": "google", "gemini-2.5-pro-preview-05-06": "google",
 }
+
+ALLOWED_MODELS = set(MODEL_TO_PROVIDER.keys())
 
 
 class QueryRequest(BaseModel):
@@ -83,6 +85,11 @@ async def qa_query(
             detail="Query cannot be empty",
         )
 
+    # Auto-detect provider from model if not explicitly set
+    provider = request.provider
+    if not provider and request.model:
+        provider = MODEL_TO_PROVIDER.get(request.model)
+
     start = time.monotonic()
 
     try:
@@ -94,7 +101,7 @@ async def qa_query(
             user_id=str(user.id),
             user_role=user.role,
             top_k=request.top_k,
-            provider_override=request.provider,
+            provider_override=provider,
             model_override=request.model,
             db=db,
         )
@@ -151,6 +158,11 @@ async def qa_query_stream(
             detail="Query cannot be empty",
         )
 
+    # Auto-detect provider from model if not explicitly set
+    provider = request.provider
+    if not provider and request.model:
+        provider = MODEL_TO_PROVIDER.get(request.model)
+
     start = time.monotonic()
 
     async def event_generator():
@@ -163,7 +175,7 @@ async def qa_query_stream(
                 user_id=str(user.id),
                 user_role=user.role,
                 top_k=request.top_k,
-                provider_override=request.provider,
+                provider_override=provider,
                 model_override=request.model,
                 db=db,
             ):
@@ -188,7 +200,7 @@ async def qa_query_stream(
                     query=request.query,
                     answer=collected_answer,
                     sources=collected_sources,
-                    llm_provider=request.provider or "",
+                    llm_provider=provider or "",
                     llm_model=request.model or "",
                     token_usage={},
                     duration_ms=duration_ms,

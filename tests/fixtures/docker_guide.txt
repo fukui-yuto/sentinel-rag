@@ -1,0 +1,393 @@
+Docker Fundamentals: A Comprehensive Guide
+
+1. Introduction to Docker
+
+Docker is an open-source platform for developing, shipping, and running applications in containers. Containers are lightweight, standalone, executable packages that include everything needed to run an application: code, runtime, system tools, system libraries, and settings. Docker enables you to separate your applications from your infrastructure, allowing you to deliver software quickly and consistently.
+
+Unlike virtual machines, which include a full operating system and hypervisor layer, containers share the host system's kernel and isolate the application processes from each other. This makes containers significantly lighter, faster to start, and more efficient in terms of system resources.
+
+Docker was initially released in 2013 and has since become the de facto standard for containerization. It uses a client-server architecture where the Docker client communicates with the Docker daemon, which handles building, running, and distributing containers.
+
+2. Docker Architecture
+
+The Docker architecture consists of several key components:
+
+Docker Daemon (dockerd): The Docker daemon listens for Docker API requests and manages Docker objects such as images, containers, networks, and volumes. A daemon can also communicate with other daemons to manage Docker services.
+
+Docker Client (docker): The Docker client is the primary way users interact with Docker. When you use commands such as docker run, the client sends these commands to the Docker daemon, which carries them out. The client can communicate with more than one daemon.
+
+Docker Registry: A Docker registry stores Docker images. Docker Hub is the default public registry that anyone can use. You can also run your own private registry. When you use docker pull or docker run, Docker pulls the required images from your configured registry. When you use docker push, your image is pushed to your configured registry.
+
+Docker Objects: When you use Docker, you are creating and using images, containers, networks, volumes, plugins, and other objects.
+
+3. Docker Images
+
+A Docker image is a read-only template with instructions for creating a Docker container. Images are built in layers, where each layer represents an instruction in the image's Dockerfile. When you change a Dockerfile and rebuild the image, only the layers that have changed are rebuilt, making images lightweight and fast.
+
+Key concepts about images:
+
+Base Images: Every Docker image starts from a base image. Common base images include ubuntu, alpine, debian, and python. Alpine-based images are particularly popular because of their small size (around 5 MB compared to 80+ MB for Ubuntu).
+
+Image Tags: Tags are used to identify different versions of an image. For example, python:3.12-slim refers to the Python 3.12 image using the slim variant. The latest tag is used by default if no tag is specified, but relying on latest in production is discouraged because it can lead to unexpected changes.
+
+Image Layers: Each instruction in a Dockerfile creates a new layer. Layers are cached, so if a layer hasn't changed, Docker reuses the cached version. This is why the order of instructions in a Dockerfile matters for build performance.
+
+Common image commands:
+
+docker images                    # List local images
+docker pull nginx:1.25           # Pull an image from a registry
+docker image inspect nginx:1.25  # Show detailed image information
+docker image prune               # Remove unused images
+docker tag myapp:latest myapp:v1.0  # Tag an image
+docker push myrepo/myapp:v1.0    # Push an image to a registry
+
+4. Dockerfile
+
+A Dockerfile is a text document that contains all the commands a user could call on the command line to assemble an image. Docker builds images by reading the instructions from a Dockerfile.
+
+A well-structured Dockerfile example:
+
+# Use a specific base image version
+FROM python:3.12-slim AS builder
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy dependency files first (better layer caching)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Production stage
+FROM python:3.12-slim AS production
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Copy application code
+COPY . .
+
+# Change ownership and switch to non-root user
+RUN chown -R appuser:appuser /app
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run application
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "app:create_app()"]
+
+Dockerfile best practices:
+
+Use multi-stage builds to reduce final image size. The builder stage contains all build tools and dependencies, while the production stage only contains what's needed to run the application.
+
+Order instructions from least to most frequently changed. Copy dependency files before copying application code so that dependency installation is cached.
+
+Minimize the number of layers by combining related commands with && in a single RUN instruction.
+
+Always specify exact versions for base images. Avoid using the latest tag.
+
+Use .dockerignore to exclude unnecessary files from the build context:
+
+.git
+.gitignore
+__pycache__
+*.pyc
+.env
+.venv
+node_modules
+tests/
+docs/
+*.md
+docker-compose*.yml
+Dockerfile*
+
+5. Docker Containers
+
+A container is a runnable instance of an image. You can create, start, stop, move, or delete a container using the Docker API or CLI. Containers are isolated from each other and from the host machine, though you can control how isolated a container's network, storage, or other underlying subsystems are.
+
+Container lifecycle commands:
+
+docker run -d --name web -p 8080:80 nginx     # Create and start a container
+docker ps                                       # List running containers
+docker ps -a                                    # List all containers (including stopped)
+docker stop web                                 # Stop a container
+docker start web                                # Start a stopped container
+docker restart web                              # Restart a container
+docker rm web                                   # Remove a container
+docker logs web                                 # View container logs
+docker logs -f web                              # Follow container logs
+docker exec -it web /bin/bash                   # Execute a command in a running container
+docker inspect web                              # Show detailed container information
+docker stats                                    # Show live resource usage statistics
+docker top web                                  # Show running processes in a container
+
+Important docker run flags:
+
+-d: Run container in detached mode (background)
+-p host_port:container_port: Map a host port to a container port
+-v host_path:container_path: Mount a volume
+-e KEY=VALUE: Set environment variables
+--name: Assign a name to the container
+--rm: Automatically remove the container when it exits
+--network: Connect a container to a network
+--restart: Set restart policy (no, on-failure, always, unless-stopped)
+--memory: Set memory limit
+--cpus: Set CPU limit
+
+6. Docker Compose
+
+Docker Compose is a tool for defining and running multi-container Docker applications. With Compose, you use a YAML file to configure your application's services, networks, and volumes. Then, with a single command, you create and start all the services from your configuration.
+
+A comprehensive docker-compose.yml example:
+
+version: "3.9"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/myapp
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - static_data:/app/static
+    networks:
+      - frontend
+      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: myapp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d myapp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_data:/usr/share/nginx/html/static:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - web
+    networks:
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_data:
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+
+Docker Compose commands:
+
+docker compose up -d             # Start all services in detached mode
+docker compose down              # Stop and remove all services
+docker compose down -v           # Stop, remove services, and delete volumes
+docker compose ps                # List running services
+docker compose logs              # View logs for all services
+docker compose logs -f web       # Follow logs for a specific service
+docker compose build             # Build or rebuild services
+docker compose exec web bash     # Execute a command in a running service
+docker compose pull              # Pull latest images
+docker compose restart web       # Restart a specific service
+
+7. Docker Networking
+
+Docker networking allows containers to communicate with each other and with the outside world. Docker creates several networks by default and supports various network drivers.
+
+Network types:
+
+Bridge (default): The default network driver. Containers on the same bridge network can communicate with each other. Bridge networks are used when your containers need to communicate on the same Docker host.
+
+Host: Removes network isolation between the container and the Docker host. The container shares the host's networking namespace. This is useful for performance-sensitive applications but reduces isolation.
+
+None: Disables all networking for a container. Useful for containers that don't need network access.
+
+Overlay: Creates a distributed network among multiple Docker daemon hosts. Used in Docker Swarm mode for multi-host networking.
+
+Macvlan: Assigns a MAC address to a container, making it appear as a physical device on the network. Useful for legacy applications that expect to be directly connected to the physical network.
+
+Network commands:
+
+docker network ls                           # List networks
+docker network create mynetwork             # Create a network
+docker network inspect mynetwork            # Show network details
+docker network connect mynetwork container  # Connect a container to a network
+docker network disconnect mynetwork container  # Disconnect a container
+docker network rm mynetwork                 # Remove a network
+
+DNS Resolution: Docker has a built-in DNS server that allows containers on the same user-defined network to resolve each other by container name. This eliminates the need to use IP addresses for inter-container communication. When you create a Docker Compose service named "db", other services can reach it using the hostname "db".
+
+Port Mapping: Use the -p flag to map container ports to host ports. The format is host_port:container_port. You can also specify the interface to bind to: 127.0.0.1:8080:80 binds only to localhost.
+
+8. Docker Volumes
+
+Volumes are the preferred mechanism for persisting data generated by and used by Docker containers. Volumes are managed by Docker and are stored in a part of the host filesystem (/var/lib/docker/volumes/ on Linux).
+
+Types of data storage:
+
+Volumes: Managed by Docker. Best for data that needs to persist across container restarts and that doesn't need to be accessed directly from the host. Volumes can be shared among multiple containers.
+
+Bind Mounts: Map a host file or directory to a container path. Useful during development when you want changes on the host to be immediately reflected in the container. The file or directory must exist on the host.
+
+tmpfs Mounts: Stored in the host's memory only. Never written to the host filesystem. Useful for sensitive data that should not persist.
+
+Volume commands:
+
+docker volume create mydata          # Create a volume
+docker volume ls                     # List volumes
+docker volume inspect mydata         # Show volume details
+docker volume rm mydata              # Remove a volume
+docker volume prune                  # Remove unused volumes
+
+# Using volumes with docker run
+docker run -v mydata:/app/data nginx              # Named volume
+docker run -v /host/path:/container/path nginx     # Bind mount
+docker run -v /host/path:/container/path:ro nginx  # Read-only bind mount
+docker run --tmpfs /tmp nginx                      # tmpfs mount
+
+Volume best practices: Use named volumes for persistent data. Use bind mounts for development (hot-reloading). Use read-only mounts when the container should not modify the data. Back up volumes regularly. Use volume drivers for remote storage or cloud integration.
+
+9. Docker Security
+
+Security is critical when running containers in production. Here are essential security practices:
+
+Run as non-root: Always create and use a non-root user in your Dockerfile. Running containers as root increases the attack surface significantly.
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+USER appuser
+
+Use minimal base images: Use Alpine or distroless images to reduce the attack surface. Fewer installed packages mean fewer potential vulnerabilities.
+
+Scan images for vulnerabilities: Use tools like Trivy, Snyk, or Docker Scout to scan your images for known vulnerabilities before deploying them.
+
+docker scout cves myapp:latest
+trivy image myapp:latest
+
+Don't store secrets in images: Never put passwords, API keys, or other secrets directly in Dockerfiles or images. Use environment variables, Docker secrets (in Swarm mode), or external secret management solutions.
+
+Use read-only filesystems: Run containers with a read-only root filesystem when possible.
+
+docker run --read-only --tmpfs /tmp myapp
+
+Limit resources: Set memory and CPU limits to prevent containers from consuming excessive host resources.
+
+docker run --memory=256m --cpus=0.5 myapp
+
+Keep images updated: Regularly rebuild images with updated base images and dependencies to patch security vulnerabilities.
+
+10. Docker Best Practices Summary
+
+Image Building:
+- Use multi-stage builds to minimize image size
+- Pin base image versions (e.g., python:3.12-slim, not python:latest)
+- Order Dockerfile instructions from least to most frequently changed
+- Combine RUN commands to reduce layers
+- Use .dockerignore to exclude unnecessary files
+- Scan images for vulnerabilities in CI/CD
+
+Container Runtime:
+- Run containers as non-root users
+- Set resource limits (memory, CPU)
+- Use health checks for all services
+- Set restart policies appropriately
+- Use read-only filesystems where possible
+
+Data Management:
+- Use named volumes for persistent data
+- Never store important data in the container's writable layer
+- Back up volumes regularly
+- Use bind mounts only in development
+
+Networking:
+- Use user-defined bridge networks instead of the default bridge
+- Use Docker's built-in DNS for service discovery
+- Expose only necessary ports
+- Use reverse proxies (nginx, traefik) for production traffic
+
+Compose:
+- Use depends_on with health checks for service ordering
+- Use environment files (.env) for configuration
+- Define resource limits in compose files
+- Use named volumes and networks
+
+Monitoring and Logging:
+- Use docker stats or container monitoring tools (Prometheus, Grafana)
+- Configure log drivers (json-file, syslog, fluentd)
+- Set log rotation to prevent disk space issues
+- Use docker events to monitor container lifecycle events
+
+This guide covers the fundamental concepts of Docker. As you progress, you will encounter more advanced topics such as Docker Swarm for orchestration, building custom network plugins, optimizing build cache with BuildKit, multi-platform builds for different CPU architectures (ARM, AMD64), and integrating Docker into CI/CD pipelines for automated testing and deployment.

@@ -14,7 +14,7 @@ class GeminiProvider(BaseLLMProvider):
 
         genai.configure(api_key=api_key)
         self.genai = genai
-        self.default_model = "gemini-1.5-pro"
+        self.default_model = "gemini-2.0-flash"
 
     async def generate(
         self,
@@ -78,17 +78,24 @@ class GeminiEmbeddingProvider(BaseEmbeddingProvider):
 
         genai.configure(api_key=api_key)
         self.genai = genai
-        self.default_model = "models/text-embedding-004"
+        self.default_model = "models/gemini-embedding-001"
 
     async def embed(
         self,
         texts: list[str],
         model: Optional[str] = None,
     ) -> EmbeddingResponse:
+        import asyncio
+        import functools
+
         model_name = model or self.default_model
-        result = self.genai.embed_content(
-            model=model_name,
-            content=texts,
+        result = await asyncio.get_event_loop().run_in_executor(
+            None,
+            functools.partial(
+                self.genai.embed_content,
+                model=model_name,
+                content=texts,
+            ),
         )
         embeddings = result["embedding"]
         if isinstance(embeddings[0], float):
