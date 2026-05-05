@@ -1,12 +1,15 @@
 from typing import Any
 
 import redis.asyncio as aioredis
+import structlog
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import settings
 from src.db.session import get_db
+
+logger = structlog.get_logger()
 
 router = APIRouter(tags=["health"])
 
@@ -27,7 +30,8 @@ async def readiness_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
         await db.execute(text("SELECT 1"))
         checks["postgres"] = "ok"
     except Exception as e:
-        checks["postgres"] = f"error: {e}"
+        logger.warning("health_check_failed", service="postgres", error=str(e))
+        checks["postgres"] = "error"
 
     # Redis
     try:
@@ -36,7 +40,8 @@ async def readiness_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
         await r.aclose()
         checks["redis"] = "ok"
     except Exception as e:
-        checks["redis"] = f"error: {e}"
+        logger.warning("health_check_failed", service="redis", error=str(e))
+        checks["redis"] = "error"
 
     # Qdrant
     try:
@@ -53,7 +58,8 @@ async def readiness_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
         await qc.close()
         checks["qdrant"] = "ok"
     except Exception as e:
-        checks["qdrant"] = f"error: {e}"
+        logger.warning("health_check_failed", service="qdrant", error=str(e))
+        checks["qdrant"] = "error"
 
     # MinIO
     try:
@@ -68,7 +74,8 @@ async def readiness_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
         mc.list_buckets()
         checks["minio"] = "ok"
     except Exception as e:
-        checks["minio"] = f"error: {e}"
+        logger.warning("health_check_failed", service="minio", error=str(e))
+        checks["minio"] = "error"
 
     all_ok = all(v == "ok" for v in checks.values())
     return {"status": "ready" if all_ok else "degraded", "checks": checks}

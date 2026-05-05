@@ -1,10 +1,12 @@
+import json
 import time
 import uuid
 from typing import Any, Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +14,8 @@ from src.api.routes.auth import get_current_user
 from src.db.session import get_db
 from src.models.qa_history import QAHistory
 from src.models.user import User
+
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/qa", tags=["qa"])
 
@@ -26,8 +30,8 @@ ALLOWED_MODELS = {
 
 
 class QueryRequest(BaseModel):
-    query: str
-    top_k: int = 10
+    query: str = Field(..., max_length=4096)
+    top_k: int = Field(10, ge=1, le=50)
     provider: Optional[str] = None
     model: Optional[str] = None
 
@@ -73,6 +77,11 @@ async def qa_query(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Model not allowed. Allowed models: {sorted(ALLOWED_MODELS)}",
         )
+    if not request.query.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Query cannot be empty",
+        )
 
     start = time.monotonic()
 
@@ -90,9 +99,10 @@ async def qa_query(
             db=db,
         )
     except Exception as e:
+        logger.error("rag_pipeline_error", error=str(e), user_id=str(user.id))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"RAG pipeline error: {e}",
+            detail="RAG pipeline error. Please try again later.",
         )
 
     duration_ms = int((time.monotonic() - start) * 1000)
@@ -130,19 +140,63 @@ async def qa_query_stream(
     """Execute RAG query with SSE streaming response."""
     from src.core.rag_pipeline import stream_rag_query
 
+    if request.model and request.model not in ALLOWED_MODELS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Model not allowed. Allowed models: {sorted(ALLOWED_MODELS)}",
+        )
+    if not request.query.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Query cannot be empty",
+        )
+
+    start = time.monotonic()
+
     async def event_generator():
-        async for event in stream_rag_query(
-            query=request.query,
-            tenant_id=str(user.tenant_id),
-            user_id=str(user.id),
-            user_role=user.role,
-            top_k=request.top_k,
-            provider_override=request.provider,
-            model_override=request.model,
-            db=db,
-        ):
-            yield f"data: {event}\n\n"
+        collected_answer = ""
+        collected_sources: list = []
+        try:
+            async for event in stream_rag_query(
+                query=request.query,
+                tenant_id=str(user.tenant_id),
+                user_id=str(user.id),
+                user_role=user.role,
+                top_k=request.top_k,
+                provider_override=request.provider,
+                model_override=request.model,
+                db=db,
+            ):
+                parsed = json.loads(event)
+                if parsed.get("type") == "token":
+                    collected_answer += parsed.get("data", "")
+                elif parsed.get("type") == "sources":
+                    collected_sources = parsed.get("data", [])
+                yield f"data: {event}\n\n"
+        except Exception as e:
+            logger.error("stream_rag_error", error=str(e), user_id=str(user.id))
+            yield f"data: {json.dumps({'type': 'error', 'data': 'An error occurred. Please try again.'})}\n\n"
         yield "data: [DONE]\n\n"
+
+        # Save to history
+        try:
+            if collected_answer:
+                duration_ms = int((time.monotonic() - start) * 1000)
+                history = QAHistory(
+                    tenant_id=user.tenant_id,
+                    user_id=user.id,
+                    query=request.query,
+                    answer=collected_answer,
+                    sources=collected_sources,
+                    llm_provider=request.provider or "",
+                    llm_model=request.model or "",
+                    token_usage={},
+                    duration_ms=duration_ms,
+                )
+                db.add(history)
+                await db.commit()
+        except Exception as e:
+            logger.warning("stream_history_save_failed", error=str(e))
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

@@ -4,8 +4,9 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src.api.middleware.audit_log import AuditLogMiddleware
 from src.api.middleware.rate_limit import RateLimitMiddleware
@@ -41,6 +42,15 @@ app = FastAPI(
     docs_url="/api/docs" if settings.is_development else None,
     redoc_url="/api/redoc" if settings.is_development else None,
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.error("unhandled_exception", path=request.url.path, error=str(exc))
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 # --- Middleware (order matters: last added = first executed) ---
 app.add_middleware(AuditLogMiddleware)

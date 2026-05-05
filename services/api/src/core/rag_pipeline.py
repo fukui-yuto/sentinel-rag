@@ -80,12 +80,13 @@ async def execute_rag_query(
         if sensitivity_order.get(chunk_sensitivity, 0) > sensitivity_order.get(max_sensitivity, 0):
             max_sensitivity = chunk_sensitivity
 
+        preview = "" if chunk_sensitivity in ("confidential", "restricted") else payload.get("content", "")[:200]
         sources.append({
             "document_id": payload.get("document_id", ""),
             "filename": payload.get("filename", ""),
             "chunk_index": payload.get("chunk_index", 0),
             "score": hit.score,
-            "content_preview": payload.get("content", "")[:200],
+            "content_preview": preview,
         })
 
     # 4. Build context and generate answer
@@ -167,11 +168,13 @@ async def stream_rag_query(
         chunk_sensitivity = payload.get("sensitivity", "internal")
         if sensitivity_order.get(chunk_sensitivity, 0) > sensitivity_order.get(max_sensitivity, 0):
             max_sensitivity = chunk_sensitivity
+        preview = "" if chunk_sensitivity in ("confidential", "restricted") else payload.get("content", "")[:200]
         sources.append({
             "document_id": payload.get("document_id", ""),
             "filename": payload.get("filename", ""),
             "chunk_index": payload.get("chunk_index", 0),
             "score": hit.score,
+            "content_preview": preview,
         })
 
     yield json.dumps({"type": "sources", "data": sources}, ensure_ascii=False)

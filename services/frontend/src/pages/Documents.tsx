@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { Upload, Trash2, FileText, X, ChevronRight } from "lucide-react";
+import { Upload, Trash2, FileText, X, ChevronRight, AlertTriangle, Loader2 } from "lucide-react";
 
 interface Document {
   id: string;
@@ -32,10 +32,16 @@ export function DocumentsPage() {
   const [page, setPage] = useState(1);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<Document | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["documents", page],
     queryFn: () => api.get<DocumentList>(`/documents?page=${page}`),
+    refetchInterval: (query) => {
+      const items = query.state.data?.items;
+      return items?.some((d: Document) => d.status === "pending" || d.status === "processing") ? 3000 : false;
+    },
   });
 
   const { data: chunks, isLoading: chunksLoading } = useQuery({
@@ -54,6 +60,10 @@ export function DocumentsPage() {
     onSuccess: (_data, deletedId) => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       if (selectedDoc?.id === deletedId) setSelectedDoc(null);
+      setDeleteError(null);
+    },
+    onError: (err) => {
+      setDeleteError(err instanceof Error ? err.message : "Delete failed");
     },
   });
 
@@ -163,7 +173,7 @@ export function DocumentsPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            deleteMutation.mutate(doc.id);
+                            setDeleteTarget(doc);
                           }}
                           className="text-gray-400 hover:text-red-500"
                         >
@@ -263,6 +273,51 @@ export function DocumentsPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm mx-4 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 rounded-full">
+                <AlertTriangle size={20} className="text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold">Delete Document</h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete <strong>{deleteTarget.filename}</strong>? This action cannot be undone.
+            </p>
+            {deleteError && (
+              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded">{deleteError}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  deleteMutation.mutate(deleteTarget.id);
+                  setDeleteTarget(null);
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Progress */}
+      {uploadMutation.isPending && (
+        <div className="fixed bottom-6 right-6 bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 flex items-center gap-3">
+          <Loader2 size={18} className="text-blue-600 animate-spin" />
+          <span className="text-sm text-gray-700">Uploading...</span>
         </div>
       )}
     </div>

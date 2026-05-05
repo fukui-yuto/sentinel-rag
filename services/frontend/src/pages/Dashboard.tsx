@@ -1,19 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { FileText, MessageSquare, Users } from "lucide-react";
+import { FileText, MessageSquare, Users, Loader2 } from "lucide-react";
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === "system_admin" || user?.role === "tenant_admin";
 
-  const { data: health } = useQuery({
+  const { data: health, isLoading: healthLoading } = useQuery({
     queryKey: ["admin-health"],
     queryFn: () => api.get<{ stats: { total_documents: number; total_users: number; total_queries: number } }>("/admin/health"),
     enabled: isAdmin,
   });
 
-  const { data: docs } = useQuery({
+  const { data: docs, isLoading: docsLoading } = useQuery({
     queryKey: ["documents-summary"],
     queryFn: () => api.get<{ total: number }>("/documents?page_size=1"),
   });
@@ -29,6 +29,13 @@ export function DashboardPage() {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
       <p className="text-gray-600">Welcome, {user?.display_name}</p>
+
+      {(healthLoading || docsLoading) && (
+        <div className="flex items-center gap-2 text-gray-400 text-sm">
+          <Loader2 size={14} className="animate-spin" />
+          Loading stats...
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard

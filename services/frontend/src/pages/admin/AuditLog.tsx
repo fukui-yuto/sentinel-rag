@@ -18,14 +18,15 @@ const categories = ["", "auth", "authz", "data_access", "data_change", "system",
 
 export function AuditLogPage() {
   const [category, setCategory] = useState("");
+  const [action, setAction] = useState("");
   const [page, setPage] = useState(0);
   const limit = 50;
 
   const { data: logs, isLoading } = useQuery({
-    queryKey: ["audit-logs", category, page],
+    queryKey: ["audit-logs", category, action, page],
     queryFn: () =>
       api.get<AuditLogEntry[]>(
-        `/admin/audit-logs?limit=${limit}&offset=${page * limit}${category ? `&category=${category}` : ""}`
+        `/admin/audit-logs?limit=${limit}&offset=${page * limit}${category ? `&category=${category}` : ""}${action ? `&action=${action}` : ""}`
       ),
   });
 
@@ -50,6 +51,12 @@ export function AuditLogPage() {
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
+        <input
+          value={action}
+          onChange={(e) => { setAction(e.target.value); setPage(0); }}
+          placeholder="Filter by action..."
+          className="px-3 py-2 border rounded-lg text-sm w-48"
+        />
       </div>
 
       {isLoading ? (

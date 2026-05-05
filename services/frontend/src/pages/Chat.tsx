@@ -1,12 +1,19 @@
 import { useState, useRef, useEffect } from "react";
-import { Send } from "lucide-react";
+import { Send, Bot, User } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
+
+interface Source {
+  filename: string;
+  score: number;
+  content_preview?: string;
+}
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  sources?: Array<{ filename: string; score: number }>;
+  sources?: Source[];
+  isError?: boolean;
 }
 
 export function ChatPage() {
@@ -51,6 +58,11 @@ export function ChatPage() {
         body: JSON.stringify({ query: userMsg.content }),
       });
 
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || `HTTP ${res.status}`);
+      }
+
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
 
@@ -86,6 +98,14 @@ export function ChatPage() {
                       : m
                   )
                 );
+              } else if (parsed.type === "error") {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsg.id
+                      ? { ...m, content: `Error: ${parsed.data}`, isError: true }
+                      : m
+                  )
+                );
               }
             } catch {
               // skip malformed chunks
@@ -94,10 +114,11 @@ export function ChatPage() {
         }
       }
     } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to get response.";
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMsg.id
-            ? { ...m, content: "Error: Failed to get response." }
+            ? { ...m, content: `Error: ${message}`, isError: true }
             : m
         )
       );
@@ -113,34 +134,50 @@ export function ChatPage() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto space-y-4 pb-4">
         {messages.length === 0 && (
-          <div className="text-center text-gray-400 mt-20">
+          <div className="text-center text-gray-400 mt-20 space-y-2">
+            <Bot size={48} className="mx-auto opacity-50" />
             <p className="text-lg">Ask a question about your documents</p>
+            <p className="text-sm">Your uploaded documents will be searched for relevant answers.</p>
           </div>
         )}
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
+            {msg.role === "assistant" && (
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center shrink-0 mt-1">
+                <Bot size={16} className="text-blue-600" />
+              </div>
+            )}
             <div
-              className={`max-w-2xl px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
+              className={`max-w-2xl px-4 py-3 rounded-2xl text-sm ${
                 msg.role === "user"
                   ? "bg-blue-600 text-white"
+                  : msg.isError
+                  ? "bg-red-50 border border-red-200 text-red-700"
                   : "bg-white border border-gray-200 text-gray-800"
               }`}
             >
-              {msg.content || (loading ? "Thinking..." : "")}
+              <div className="whitespace-pre-wrap leading-relaxed">
+                {msg.content || (loading ? "Thinking..." : "")}
+              </div>
               {msg.sources && msg.sources.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
                   <p className="text-xs font-semibold text-gray-500">Sources:</p>
                   {msg.sources.map((s, i) => (
                     <p key={i} className="text-xs text-gray-400">
-                      {s.filename} (score: {s.score.toFixed(3)})
+                      {s.filename} (relevance: {(s.score * 100).toFixed(1)}%)
                     </p>
                   ))}
                 </div>
               )}
             </div>
+            {msg.role === "user" && (
+              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center shrink-0 mt-1">
+                <User size={16} className="text-gray-600" />
+              </div>
+            )}
           </div>
         ))}
         <div ref={bottomRef} />
@@ -152,13 +189,13 @@ export function ChatPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask a question..."
-          className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           disabled={loading}
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          className="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50"
+          className="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
           <Send size={18} />
         </button>
