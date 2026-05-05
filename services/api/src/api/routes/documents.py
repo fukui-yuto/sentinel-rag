@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.routes.auth import get_current_user
 from src.db.session import get_db
-from src.models.document import Document
+from src.models.document import Document, DocumentChunk
 from src.models.user import User
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -213,3 +213,39 @@ async def delete_document(
     doc.deleted_at = datetime.now(timezone.utc)
     doc.status = "deleted"
     await db.commit()
+
+
+class ChunkResponse(BaseModel):
+    id: uuid.UUID
+    chunk_index: int
+    content: str
+    token_count: int
+    created_at: Any
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/{document_id}/chunks", response_model=list[ChunkResponse])
+async def get_document_chunks(
+    document_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Get all chunks for a document."""
+    # Verify document belongs to user's tenant
+    result = await db.execute(
+        select(Document).where(
+            Document.id == document_id,
+            Document.tenant_id == user.tenant_id,
+            Document.deleted_at.is_(None),
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    chunks = await db.execute(
+        select(DocumentChunk)
+        .where(DocumentChunk.document_id == document_id)
+        .order_by(DocumentChunk.chunk_index)
+    )
+    return chunks.scalars().all()
