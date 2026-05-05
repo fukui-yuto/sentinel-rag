@@ -1,0 +1,100 @@
+- generic [ref=e13]:
+  - navigation [ref=e14]:
+    - generic [ref=e15]:
+      - heading "Sentinel RAG" [level=1] [ref=e16]
+      - paragraph [ref=e17]: admin@sentinel.local
+    - generic [ref=e18]:
+      - link "Dashboard" [ref=e19] [cursor=pointer]:
+        - /url: /
+        - img [ref=e20]
+        - text: Dashboard
+      - link "Chat" [ref=e25] [cursor=pointer]:
+        - /url: /chat
+        - img [ref=e26]
+        - text: Chat
+      - link "Documents" [active] [ref=e28] [cursor=pointer]:
+        - /url: /documents
+        - img [ref=e29]
+        - text: Documents
+      - link "Settings" [ref=e32] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e33]
+        - text: Settings
+      - generic [ref=e36]: Admin
+      - link "Tenants" [ref=e37] [cursor=pointer]:
+        - /url: /admin/tenants
+        - img [ref=e38]
+        - text: Tenants
+      - link "Users" [ref=e42] [cursor=pointer]:
+        - /url: /admin/users
+        - img [ref=e43]
+        - text: Users
+      - link "Providers" [ref=e48] [cursor=pointer]:
+        - /url: /admin/providers
+        - img [ref=e49]
+        - text: Providers
+      - link "Audit Log" [ref=e52] [cursor=pointer]:
+        - /url: /admin/audit-log
+        - img [ref=e53]
+        - text: Audit Log
+      - link "Health" [ref=e55] [cursor=pointer]:
+        - /url: /admin/health
+        - img [ref=e56]
+        - text: Health
+    - button "Logout" [ref=e59] [cursor=pointer]:
+      - img [ref=e60]
+      - text: Logout
+  - main [ref=e63]:
+    - generic [ref=e199]:
+      - generic [ref=e200]:
+        - heading "Documents" [level=2] [ref=e201]
+        - button "Upload" [ref=e202] [cursor=pointer]:
+          - img [ref=e203]
+          - text: Upload
+      - table [ref=e207]:
+        - rowgroup [ref=e208]:
+          - row "Name Status Sensitivity Size Chunks Date" [ref=e209]:
+            - columnheader "Name" [ref=e210]
+            - columnheader "Status" [ref=e211]
+            - columnheader "Sensitivity" [ref=e212]
+            - columnheader "Size" [ref=e213]
+            - columnheader "Chunks" [ref=e214]
+            - columnheader "Date" [ref=e215]
+            - columnheader [ref=e216]
+        - rowgroup [ref=e217]:
+          - row "test-doc4.txt indexed internal 98 B 1 2026/5/5" [ref=e218]:
+            - cell "test-doc4.txt" [ref=e219]:
+              - img [ref=e220]
+              - generic [ref=e223]: test-doc4.txt
+            - cell "indexed" [ref=e224]
+            - cell "internal" [ref=e225]
+            - cell "98 B" [ref=e226]
+            - cell "1" [ref=e227]
+            - cell "2026/5/5" [ref=e228]
+            - cell [ref=e229]:
+              - button [ref=e230] [cursor=pointer]:
+                - img [ref=e231]
+          - row "test-doc3.txt failed internal 87 B 0 2026/5/5" [ref=e234]:
+            - cell "test-doc3.txt" [ref=e235]:
+              - img [ref=e236]
+              - generic [ref=e239]: test-doc3.txt
+            - cell "failed" [ref=e240]
+            - cell "internal" [ref=e241]
+            - cell "87 B" [ref=e242]
+            - cell "0" [ref=e243]
+            - cell "2026/5/5" [ref=e244]
+            - cell [ref=e245]:
+              - button [ref=e246] [cursor=pointer]:
+                - img [ref=e247]
+          - row "test-doc2.txt pending internal 80 B 0 2026/5/5" [ref=e250]:
+            - cell "test-doc2.txt" [ref=e251]:
+              - img [ref=e252]
+              - generic [ref=e255]: test-doc2.txt
+            - cell "pending" [ref=e256]
+            - cell "internal" [ref=e257]
+            - cell "80 B" [ref=e258]
+            - cell "0" [ref=e259]
+            - cell "2026/5/5" [ref=e260]
+            - cell [ref=e261]:
+              - button [ref=e262] [cursor=pointer]:
+                - img [ref=e263]

@@ -1,0 +1,69 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Sentinel RAG" [level=1] [ref=e6]
+      - paragraph [ref=e7]: admin@sentinel.local
+    - generic [ref=e8]:
+      - link "Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /
+        - img [ref=e10]
+        - text: Dashboard
+      - link "Chat" [ref=e15] [cursor=pointer]:
+        - /url: /chat
+        - img [ref=e16]
+        - text: Chat
+      - link "Documents" [ref=e18] [cursor=pointer]:
+        - /url: /documents
+        - img [ref=e19]
+        - text: Documents
+      - link "Settings" [ref=e22] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e23]
+        - text: Settings
+      - generic [ref=e26]: Admin
+      - link "Tenants" [ref=e27] [cursor=pointer]:
+        - /url: /admin/tenants
+        - img [ref=e28]
+        - text: Tenants
+      - link "Users" [ref=e32] [cursor=pointer]:
+        - /url: /admin/users
+        - img [ref=e33]
+        - text: Users
+      - link "Providers" [ref=e38] [cursor=pointer]:
+        - /url: /admin/providers
+        - img [ref=e39]
+        - text: Providers
+      - link "Audit Log" [ref=e42] [cursor=pointer]:
+        - /url: /admin/audit-log
+        - img [ref=e43]
+        - text: Audit Log
+      - link "Health" [ref=e45] [cursor=pointer]:
+        - /url: /admin/health
+        - img [ref=e46]
+        - text: Health
+    - button "Logout" [ref=e49] [cursor=pointer]:
+      - img [ref=e50]
+      - text: Logout
+  - main [ref=e53]:
+    - generic [ref=e54]:
+      - heading "Dashboard" [level=2] [ref=e55]
+      - paragraph [ref=e56]: Welcome, System Administrator
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - img [ref=e60]
+          - generic [ref=e63]:
+            - paragraph [ref=e64]: "0"
+            - paragraph [ref=e65]: Documents
+        - generic [ref=e66]:
+          - img [ref=e68]
+          - generic [ref=e70]:
+            - paragraph [ref=e71]: "0"
+            - paragraph [ref=e72]: Total Queries
+        - generic [ref=e73]:
+          - img [ref=e75]
+          - generic [ref=e80]:
+            - paragraph [ref=e81]: "0"
+            - paragraph [ref=e82]: Users
+      - generic [ref=e83]:
+        - heading "Recent Queries" [level=3] [ref=e84]
+        - paragraph [ref=e85]: No recent queries.

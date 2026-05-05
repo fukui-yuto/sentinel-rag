@@ -1,0 +1,54 @@
+- generic [ref=e13]:
+  - navigation [ref=e14]:
+    - generic [ref=e15]:
+      - heading "Sentinel RAG" [level=1] [ref=e16]
+      - paragraph [ref=e17]: admin@sentinel.local
+    - generic [ref=e18]:
+      - link "Dashboard" [ref=e19] [cursor=pointer]:
+        - /url: /
+        - img [ref=e20]
+        - text: Dashboard
+      - link "Chat" [active] [ref=e25] [cursor=pointer]:
+        - /url: /chat
+        - img [ref=e26]
+        - text: Chat
+      - link "Documents" [ref=e28] [cursor=pointer]:
+        - /url: /documents
+        - img [ref=e29]
+        - text: Documents
+      - link "Settings" [ref=e32] [cursor=pointer]:
+        - /url: /settings
+        - img [ref=e33]
+        - text: Settings
+      - generic [ref=e36]: Admin
+      - link "Tenants" [ref=e37] [cursor=pointer]:
+        - /url: /admin/tenants
+        - img [ref=e38]
+        - text: Tenants
+      - link "Users" [ref=e42] [cursor=pointer]:
+        - /url: /admin/users
+        - img [ref=e43]
+        - text: Users
+      - link "Providers" [ref=e48] [cursor=pointer]:
+        - /url: /admin/providers
+        - img [ref=e49]
+        - text: Providers
+      - link "Audit Log" [ref=e52] [cursor=pointer]:
+        - /url: /admin/audit-log
+        - img [ref=e53]
+        - text: Audit Log
+      - link "Health" [ref=e55] [cursor=pointer]:
+        - /url: /admin/health
+        - img [ref=e56]
+        - text: Health
+    - button "Logout" [ref=e59] [cursor=pointer]:
+      - img [ref=e60]
+      - text: Logout
+  - main [ref=e63]:
+    - generic [ref=e188]:
+      - heading "Chat" [level=2] [ref=e189]
+      - paragraph [ref=e192]: Ask a question about your documents
+      - generic [ref=e193]:
+        - textbox "Ask a question..." [ref=e194]
+        - button [disabled] [ref=e195]:
+          - img [ref=e196]
