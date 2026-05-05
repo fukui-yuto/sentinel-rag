@@ -16,6 +16,15 @@ from src.models.user import User
 router = APIRouter(prefix="/qa", tags=["qa"])
 
 
+ALLOWED_MODELS = {
+    "qwen2.5:3b", "qwen2.5:7b", "qwen2.5:14b", "llama3.1:8b",
+    "nomic-embed-text", "gemma2:9b",
+    "claude-sonnet-4-20250514", "claude-haiku-4-5-20251001",
+    "gpt-4o", "gpt-4o-mini",
+    "gemini-2.0-flash", "gemini-2.5-pro-preview-05-06",
+}
+
+
 class QueryRequest(BaseModel):
     query: str
     top_k: int = 10
@@ -59,6 +68,12 @@ async def qa_query(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Execute RAG query (non-streaming). Full pipeline: embed -> search -> rerank -> generate."""
+    if request.model and request.model not in ALLOWED_MODELS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Model not allowed. Allowed models: {sorted(ALLOWED_MODELS)}",
+        )
+
     start = time.monotonic()
 
     try:

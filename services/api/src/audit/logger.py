@@ -26,11 +26,12 @@ async def write_audit_log(
     """Write an audit log entry with hash chain linkage."""
     now = datetime.now(timezone.utc)
 
-    # Get previous hash
+    # Get previous hash with row lock to prevent concurrent chain forks
     prev = await db.execute(
         select(AuditLog.record_hash)
         .order_by(AuditLog.id.desc())
         .limit(1)
+        .with_for_update()
     )
     previous_hash = prev.scalar_one_or_none()
 

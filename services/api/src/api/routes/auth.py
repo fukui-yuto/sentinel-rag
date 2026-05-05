@@ -3,15 +3,18 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import redis.asyncio as aioredis
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from jose import JWTError, jwt
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import settings
 from src.db.session import get_db
 from src.models.user import User
+
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -71,21 +74,21 @@ async def get_current_user(
 
     # Check Redis session blacklist
     try:
-        r = aioredis.from_url(settings.redis_url)
+        r = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
         jti = payload.get("jti", "")
         if await r.get(f"session:revoked:{jti}"):
             await r.aclose()
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session revoked")
         await r.aclose()
-    except Exception:
-        pass
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning("redis_session_check_failed", error=str(e))
 
     # Set RLS tenant context (validate UUID format to prevent SQL injection)
     tenant_id = payload.get("tenant_id")
     if tenant_id:
         validated_tid = str(uuid.UUID(tenant_id))  # raises ValueError if not a valid UUID
-        from sqlalchemy import text
-
         await db.execute(text(f"SET LOCAL app.current_tenant_id = '{validated_tid}'"))
 
     result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))

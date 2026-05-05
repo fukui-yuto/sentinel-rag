@@ -90,8 +90,14 @@ async def upload_document(
     if sensitivity not in ("public", "internal", "confidential", "restricted"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid sensitivity")
 
-    # Read file content and compute hash
-    content = await file.read()
+    # Read file content with size limit (100 MB)
+    max_size = 100 * 1024 * 1024
+    content = await file.read(max_size + 1)
+    if len(content) > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Maximum size is {max_size // (1024*1024)} MB",
+        )
     file_hash = hashlib.sha256(content).hexdigest()
 
     # Check duplicate

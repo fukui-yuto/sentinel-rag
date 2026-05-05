@@ -28,7 +28,7 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
         duration_ms = int((time.monotonic() - start) * 1000)
 
         # Log request details
-        await logger.ainfo(
+        logger.info(
             "api_request",
             method=request.method,
             path=request.url.path,

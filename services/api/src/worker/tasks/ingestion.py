@@ -217,7 +217,42 @@ def cleanup_deleted_documents() -> dict:
         ).all()
 
         for doc in docs:
-            # TODO: Delete from Qdrant and MinIO too
+            # Delete from Qdrant
+            try:
+                from qdrant_client import QdrantClient
+                from qdrant_client.models import FieldCondition, Filter, MatchValue
+
+                qc = QdrantClient(
+                    host=settings.qdrant_host,
+                    port=settings.qdrant_port,
+                    api_key=settings.qdrant_api_key or None,
+                    https=False,
+                )
+                collection_name = f"tenant_{doc.tenant_id}"
+                qc.delete(
+                    collection_name=collection_name,
+                    points_selector=Filter(
+                        must=[FieldCondition(key="document_id", match=MatchValue(value=str(doc.id)))]
+                    ),
+                )
+            except Exception as e:
+                logger.warning("qdrant_cleanup_failed", document_id=str(doc.id), error=str(e))
+
+            # Delete from MinIO
+            try:
+                from minio import Minio
+
+                mc = Minio(
+                    settings.minio_endpoint,
+                    access_key=settings.minio_root_user,
+                    secret_key=settings.minio_root_password,
+                    secure=settings.minio_use_ssl,
+                )
+                if doc.minio_bucket and doc.minio_key:
+                    mc.remove_object(doc.minio_bucket, doc.minio_key)
+            except Exception as e:
+                logger.warning("minio_cleanup_failed", document_id=str(doc.id), error=str(e))
+
             db.delete(doc)
             count += 1
 

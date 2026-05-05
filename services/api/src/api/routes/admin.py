@@ -185,17 +185,21 @@ class AuditLogResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+def require_admin_or_auditor(user: User = Depends(get_current_user)) -> User:
+    if user.role not in ("system_admin", "tenant_admin", "auditor"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin or auditor required")
+    return user
+
+
 @router.get("/audit-logs", response_model=list[AuditLogResponse])
 async def list_audit_logs(
     category: Optional[str] = None,
     action: Optional[str] = None,
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_admin_or_auditor),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    if user.role not in ("system_admin", "auditor"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
 
     query = select(AuditLog)
     if user.role != "system_admin":

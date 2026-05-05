@@ -34,20 +34,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         try:
             r = aioredis.from_url(settings.redis_url, socket_connect_timeout=1)
-            current = await r.get(key)
+            pipe = r.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, self.window)
+            results = await pipe.execute()
+            current_count = results[0]
+            await r.aclose()
 
-            if current and int(current) >= self.requests_per_minute:
-                await r.aclose()
+            if current_count > self.requests_per_minute:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="Rate limit exceeded",
                 )
-
-            pipe = r.pipeline()
-            pipe.incr(key)
-            pipe.expire(key, self.window)
-            await pipe.execute()
-            await r.aclose()
         except HTTPException:
             raise
         except Exception:
