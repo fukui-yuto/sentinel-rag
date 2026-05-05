@@ -80,12 +80,13 @@ async def get_current_user(
     except Exception:
         pass
 
-    # Set RLS tenant context
+    # Set RLS tenant context (validate UUID format to prevent SQL injection)
     tenant_id = payload.get("tenant_id")
     if tenant_id:
-        await db.execute(
-            __import__("sqlalchemy").text(f"SET LOCAL app.current_tenant_id = '{tenant_id}'")
-        )
+        validated_tid = str(uuid.UUID(tenant_id))  # raises ValueError if not a valid UUID
+        from sqlalchemy import text
+
+        await db.execute(text(f"SET LOCAL app.current_tenant_id = '{validated_tid}'"))
 
     result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
     user = result.scalar_one_or_none()

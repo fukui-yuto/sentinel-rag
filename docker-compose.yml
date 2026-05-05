@@ -27,7 +27,7 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:80/health"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -55,6 +55,7 @@ services:
     networks:
       - edge
       - app
+      - data
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,12 +84,13 @@ services:
       dockerfile: Dockerfile
     container_name: sentinel-worker
     restart: unless-stopped
-    command: ["celery", "-A", "src.worker.celery_app", "worker", "--loglevel=info", "--concurrency=4"]
+    command: ["celery", "-A", "src.worker.celery_app", "worker", "--loglevel=info", "--concurrency=4", "-Q", "celery,ingestion,embedding,sync,audit"]
     env_file: .env
     volumes:
       - ./data/sync:/opt/sentinel/sync
     networks:
       - app
+      - data
     depends_on:
       postgres:
         condition: service_healthy
@@ -121,6 +123,7 @@ services:
     env_file: .env
     networks:
       - app
+      - data
     depends_on:
       redis:
         condition: service_healthy
@@ -143,7 +146,7 @@ services:
     networks:
       - app
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "ollama", "list"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -241,10 +244,11 @@ services:
     networks:
       - data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      test: ["CMD-SHELL", "grep -q '18BD' /proc/net/tcp || exit 1"]
       interval: 15s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 10s
     deploy:
       resources:
         limits:

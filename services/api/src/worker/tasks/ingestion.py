@@ -92,12 +92,10 @@ def process_document(self, document_id: str) -> dict:
             # Batch embed (max 50 at a time)
             all_embeddings = []
             batch_size = 50
+            import asyncio
+
             for i in range(0, len(chunks), batch_size):
                 batch = chunks[i : i + batch_size]
-                result = embedding_provider.embed.__wrapped__(embedding_provider, batch)
-                # Sync call for Celery (blocking)
-                import asyncio
-
                 loop = asyncio.new_event_loop()
                 result = loop.run_until_complete(embedding_provider.embed(batch))
                 loop.close()
@@ -111,6 +109,7 @@ def process_document(self, document_id: str) -> dict:
                 host=settings.qdrant_host,
                 port=settings.qdrant_port,
                 api_key=settings.qdrant_api_key or None,
+                https=False,
             )
 
             collection_name = f"tenant_{doc.tenant_id}"

@@ -28,7 +28,7 @@ services:
   worker:
     build:
       target: development
-    command: ["celery", "-A", "src.worker.celery_app", "worker", "--loglevel=debug", "--concurrency=2"]
+    command: ["celery", "-A", "src.worker.celery_app", "worker", "--loglevel=debug", "--concurrency=2", "-Q", "celery,ingestion,embedding,sync,audit"]
     volumes:
       - ./services/api/src:/app/src:ro
     deploy:

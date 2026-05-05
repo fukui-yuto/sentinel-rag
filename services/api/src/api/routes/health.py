@@ -46,6 +46,7 @@ async def readiness_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
             host=settings.qdrant_host,
             port=settings.qdrant_port,
             api_key=settings.qdrant_api_key or None,
+            https=False,
             timeout=5,
         )
         await qc.get_collections()

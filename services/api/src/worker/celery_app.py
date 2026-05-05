@@ -39,3 +39,8 @@ celery_app.conf.update(
 )
 
 celery_app.autodiscover_tasks(["src.worker.tasks"])
+
+# Explicit imports to ensure task registration (autodiscover may not find submodules)
+import src.worker.tasks.ingestion  # noqa: F401, E402
+import src.worker.tasks.sync  # noqa: F401, E402
+import src.worker.tasks.audit_aggregator  # noqa: F401, E402

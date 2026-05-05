@@ -90,6 +90,7 @@ async def create_tenant(
             host=settings.qdrant_host,
             port=settings.qdrant_port,
             api_key=settings.qdrant_api_key or None,
+            https=False,
         )
         qc.create_collection(
             collection_name=f"tenant_{tenant.slug}",

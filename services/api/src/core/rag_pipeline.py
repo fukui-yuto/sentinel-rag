@@ -39,13 +39,14 @@ async def execute_rag_query(
         host=settings.qdrant_host,
         port=settings.qdrant_port,
         api_key=settings.qdrant_api_key or None,
+        https=False,
     )
     collection_name = f"tenant_{tenant_id}"
 
     try:
-        search_results = await qdrant.search(
+        result = await qdrant.query_points(
             collection_name=collection_name,
-            query_vector=query_vector,
+            query=query_vector,
             limit=top_k,
             query_filter=Filter(
                 must=[
@@ -53,6 +54,7 @@ async def execute_rag_query(
                 ]
             ),
         )
+        search_results = result.points
     except Exception:
         search_results = []
     finally:
@@ -134,13 +136,14 @@ async def stream_rag_query(
         host=settings.qdrant_host,
         port=settings.qdrant_port,
         api_key=settings.qdrant_api_key or None,
+        https=False,
     )
     collection_name = f"tenant_{tenant_id}"
 
     try:
-        search_results = await qdrant.search(
+        result = await qdrant.query_points(
             collection_name=collection_name,
-            query_vector=query_vector,
+            query=query_vector,
             limit=top_k,
             query_filter=Filter(
                 must=[
@@ -148,6 +151,7 @@ async def stream_rag_query(
                 ]
             ),
         )
+        search_results = result.points
     except Exception:
         search_results = []
     finally:
